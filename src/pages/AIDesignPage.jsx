@@ -31,12 +31,34 @@ export default function AIDesignPage() {
   };
 
   const handleFileUpload = async (e) => {
-    const uploadedFiles = Array.from(e.target.files);
-    setFiles((prev) => {
-      const existingNames = new Set(prev.map(f => f.name));
-      const newFiles = uploadedFiles.filter(f => !existingNames.has(f.name));
-      return [...prev, ...newFiles];
+  const uploadedFiles = Array.from(e.target.files);
+  const newFileIds = {};  // 暫存新的 ID
+
+  const existingNames = new Set(files.map(f => f.name));
+  const newFiles = uploadedFiles.filter(f => !existingNames.has(f.name));
+  setFiles((prev) => [...prev, ...newFiles]);
+
+  for (const file of newFiles) {
+    const base64 = await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.readAsDataURL(file);
     });
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        image_base64: base64.split(",")[1],
+      }),
+    });
+    const { fileId } = await res.json();
+    newFileIds[file.name] = fileId;  // 暫時存起來
+  }
+
+  // 批次更新 fileIds
+  setFileIds((prev) => ({ ...prev, ...newFileIds }));
+};
 
     for (const file of uploadedFiles) {
       if (fileIds[file.name]) continue;

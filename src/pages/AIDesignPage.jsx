@@ -173,7 +173,7 @@ export default function AIDesignPage() {
           {files.length > 0 ? (
             files.map((file, idx) => {
               const fileId = fileIds[file.name];
-              const previewSrc = fileId ? `${S3_BASE}/${fileId}.jpg` : "";
+              const previewSrc = fileId ? `${S3_BASE}${fileId}` : "";
               return (
                 <div key={idx} className="flex items-center gap-2 w-full">
                   <input type="checkbox" id={`file-${idx}`} className="form-checkbox" />

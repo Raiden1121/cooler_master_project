@@ -197,19 +197,20 @@ export default function AIDesignPage() {
                   className="flex-shrink-0 flex flex-col items-center gap-1 w-20 h-20 md:w-full md:aspect-square"
                 >
                   <div
-                    onClick={() => toggleSelect(file.name)}
-                    className={`cursor-pointer w-full h-full md:aspect-square bg-white rounded overflow-hidden flex items-center justify-center relative ${isSelected ? 'ring-2 ring-purple-400' : ''}`}
-                  >
-                    {previewSrc ? (
-                      <img
-                        src={previewSrc}
-                        alt={file.name}
-                        className={`w-full h-full md:aspect-square object-contain transition-all duration-200 ${isSelected ? 'brightness-75' : 'hover:brightness-90'}`}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 animate-pulse" />
-                    )}
-                  </div>
+  onClick={() => toggleSelect(file.name)}
+  className={`cursor-pointer w-full h-full md:aspect-square bg-white rounded overflow-hidden flex items-center justify-center relative ${isSelected ? 'ring-2 ring-purple-400' : ''}`}
+>
+  {previewSrc ? (
+    <img
+      src={previewSrc}
+      alt={file.name}
+      className={`w-full h-full object-contain transition-all duration-200 ${isSelected ? 'brightness-75' : 'hover:brightness-90'}`}
+    />
+  ) : (
+    <div className="w-full h-full bg-gray-200 animate-pulse" />
+  )}
+</div>
+
                   <p className="hidden md:block text-xs break-words text-center">{file.name}</p>
                 </div>
               );

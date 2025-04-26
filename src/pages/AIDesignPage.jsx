@@ -80,6 +80,7 @@ export default function AIDesignPage() {
                 className="w-8 h-8 object-cover rounded cursor-pointer"
                 onClick={() => setImageURL(url)}
               />
+            <img src='https://s3.us-west-2.amazonaws.com/generate.imagenfile/uploads/b44537a5-9742-4f09-93e0-a4cd17d35317.jpg'/>
             ))
           ) : (
             <span className="text-xs md:text-sm text-orange-500">尚無歷史檔案</span>

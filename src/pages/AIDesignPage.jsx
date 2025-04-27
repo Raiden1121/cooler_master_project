@@ -20,6 +20,11 @@ export default function AIDesignPage() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    const testImage = "";
+    setImageURL(testImage);
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -90,7 +95,8 @@ export default function AIDesignPage() {
         bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
-      const url = imageId ? `${S3_BASE_2}/${imageId}` : "";
+      const url = imageId ? `${S3_BASE_2}/${imageId}`: "";
+      const testImage = url;
       setImageURL(url);
       if (bpData) setBestPrompt(bpData);
       setHistory((p) => [url, ...p]);

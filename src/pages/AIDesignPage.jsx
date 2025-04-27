@@ -3,6 +3,7 @@ import { Download, RotateCcw } from "lucide-react";
 
 const API_BASE = "https://5jcxcx8tub.execute-api.us-west-2.amazonaws.com";
 const S3_BASE = "https://d2rxbimzcpor6e.cloudfront.net";
+const S3_BASE_2 = "https://d1ykefiqcz1tgb.cloudfront.net";
 
 export default function AIDesignPage() {
   const [prompt, setPrompt] = useState("");
@@ -89,7 +90,7 @@ export default function AIDesignPage() {
         bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
-      const url = imageId ? `${S3_BASE}/${imageId}.jpg` : "";
+      const url = imageId ? `${S3_BASE_2}/${imageId}.jpg` : "";
       setImageURL(url);
       if (bpData) setBestPrompt(bpData);
       setHistory((p) => [url, ...p]);

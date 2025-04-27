@@ -3,7 +3,6 @@ import { Download, RotateCcw } from "lucide-react";
 
 const API_BASE = "https://5jcxcx8tub.execute-api.us-west-2.amazonaws.com";
 const S3_BASE = "https://d2rxbimzcpor6e.cloudfront.net";
-const S3_BASE2 = "https://d1ykefiqcz1tgb.cloudfront.net";
 
 export default function AIDesignPage() {
   const [prompt, setPrompt] = useState("");
@@ -90,15 +89,10 @@ export default function AIDesignPage() {
         bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
-      if (!imageId) {
-        console.error("No valid imageId returned from API", data);
-        return;
-      }
-
-      const url = `${S3_BASE2}/${imageId}.jpg`;
+      const url = imageId ? `${S3_BASE}/${imageId}.jpg` : "";
       setImageURL(url);
       if (bpData) setBestPrompt(bpData);
-      setHistory((p) => [imageId, ...p]);
+      setHistory((p) => [url, ...p]);
     } catch (err) {
       console.error("Generate 錯誤：", err);
     } finally {
@@ -129,22 +123,18 @@ export default function AIDesignPage() {
       {/* 左側：歷史縮圖 + 主圖 */}
       <div className="flex flex-col border-2 border-orange-500 bg-gray-50 rounded-2xl p-4">
         <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
-          {history.length > 0 ? history.map((imageId, idx) => {
-            if (!imageId) {
-              console.warn(`Invalid imageId at history index ${idx}`);
-              return null;
-            }
+          {history.length > 0 ? history.map((url, idx) => {
             const active = selectedHistory === idx;
             return (
-              <img 
+              <img
                 key={idx}
-                src={`${S3_BASE2}/${imageId}.jpg`} 
-                alt={`歷史${idx + 1}`} 
-                className={`w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}`} 
-                onClick={() => { setImageURL(`${S3_BASE2}/${imageId}.jpg`); setSelectedHistory(idx); }}
+                src={url}
+                alt={`歷史${idx + 1}`}
+                onClick={() => { setImageURL(url); setSelectedHistory(idx); }}
+                className={`w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}`}
               />
             );
-          }).filter(Boolean) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
+          }) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
         </div>
 
         {loading ? (

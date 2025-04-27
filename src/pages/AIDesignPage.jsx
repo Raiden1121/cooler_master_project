@@ -1,64 +1,52 @@
-// src/pages/AIDesignPage.jsx
 import React, { useState, useRef, useEffect } from "react";
-import { getUrl } from 'aws-amplify/storage';
-import { ArrowLeft, Download, RotateCcw } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 
+// ------ 常數設定 ------
 const API_BASE = "https://5jcxcx8tub.execute-api.us-west-2.amazonaws.com";
+const S3_BASE = "https://d2rxbimzcpor6e.cloudfront.net";
 
 export default function AIDesignPage() {
   const [prompt, setPrompt] = useState("");
   const [bestPrompt, setBestPrompt] = useState("");
   const [files, setFiles] = useState([]);
   const [fileIds, setFileIds] = useState({});
-  const [fileUrls, setFileUrls] = useState({});  // 對應檔名的預簽名 URL
   const [imageURL, setImageURL] = useState("");
   const [history, setHistory] = useState([]);
+  const [selectedHistory, setSelectedHistory] = useState(null);
   const [messages, setMessages] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 取得預簽名 URL
-  const fetchImageUrl = async (path) => {
-    try {
-      const { url } = await getUrl({ path });
-      return url;
-    } catch (error) {
-      console.error('Error fetching presigned URL:', error);
-      return null;
-    }
-  };
+  useEffect(() => {
+    if (history.length > 0) setSelectedHistory(0);
+  }, [history]);
 
   const toggleSelect = (fileName) => {
-    setSelectedFiles(prev =>
-      prev.includes(fileName)
-        ? prev.filter(n => n !== fileName)
-        : [...prev, fileName]
+    setSelectedFiles((prev) =>
+      prev.includes(fileName) ? prev.filter((n) => n !== fileName) : [...prev, fileName]
     );
   };
 
   const handleFileUpload = async (e) => {
-    const uploadedFiles = Array.from(e.target.files);
-    setFiles(prev => {
-      const existing = new Set(prev.map(f => f.name));
-      return [...prev, ...uploadedFiles.filter(f => !existing.has(f.name))];
+    const uploaded = Array.from(e.target.files);
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name));
+      return [...prev, ...uploaded.filter((f) => !existing.has(f.name))];
     });
 
-    for (const file of uploadedFiles) {
+    for (const file of uploaded) {
       if (fileIds[file.name]) continue;
-      // 轉為 base64 上傳
-      const base64 = await new Promise(resolve => {
+      const base64 = await new Promise((res) => {
         const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
+        fr.onload = () => res(fr.result);
         fr.readAsDataURL(file);
       });
-      const res = await fetch(`${API_BASE}/upload`, {
+      const resp = await fetch(`${API_BASE}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -66,129 +54,156 @@ export default function AIDesignPage() {
           image_base64: base64.split(",")[1],
         }),
       });
-      const { fileId } = await res.json();
-      setFileIds(prev => ({ ...prev, [file.name]: fileId }));
-
-      // 取得預簽名 URL，假設 S3 key 存在於 uploads/ 資料夾
-      const key = `uploads/${fileId}.jpg`;
-      const presigned = await fetchImageUrl(key);
-      if (presigned) {
-        setFileUrls(prev => ({ ...prev, [file.name]: presigned }));
+      const data = await resp.json();
+      const fileId = data.fileId ?? data.result?.fileId;
+      if (!fileId) {
+        console.error('No fileId returned', data);
+        continue;
       }
+      setFileIds((p) => ({ ...p, [file.name]: fileId }));
     }
   };
 
-  const handleGenerate = async (customPrompt) => {
-    const usedPrompt = customPrompt;
-    if (!usedPrompt.trim()) return;
-
-    setMessages(prev => [...prev, usedPrompt]);
+  const handleGenerate = async (usePrompt) => {
+    const text = usePrompt ?? prompt;
+    if (!text.trim()) return;
+    setMessages((p) => [...p, text]);
     setLoading(true);
 
-    // 使用預簽名 URL 作為 attachments
-    const attachments = selectedFiles
-      .map(name => fileUrls[name])
-      .filter(Boolean);
+    const ids = selectedFiles.map((name) => fileIds[name]).filter(Boolean);
 
     try {
       const res = await fetch(`${API_BASE}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: usedPrompt,
-          images: attachments,
-        }),
+        body: JSON.stringify({ prompt: text, fileIds: ids }),
       });
-      const { imageUrl, bestPrompt: generatedBestPrompt } = await res.json();
-      setImageURL(imageUrl);
-      if (generatedBestPrompt) setBestPrompt(generatedBestPrompt);
-      setHistory(prev => [imageUrl, ...prev]);
-    } catch (err) {
-      console.error(err);
-    }
+      const data = await res.json();
+      const imageId = data.imageId ?? data.result?.imageId;
+      let bpData = data.bestPrompt ?? data.result?.bestPrompt;
 
-    setSelectedFiles([]);
-    setLoading(false);
+      // 🔥 去除 <generate-best-prompt> 前綴
+      if (typeof bpData === "object" && bpData.result) {
+        bpData = bpData.result;
+      }
+      if (typeof bpData === "string") {
+        bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "");
+      }
+
+      const url = imageId ? `${S3_BASE}/${imageId}.jpg` : "";
+      setImageURL(url);
+      if (bpData) setBestPrompt(bpData);
+      setHistory((p) => [url, ...p]);
+    } catch (err) {
+      console.error("Generate 錯誤：", err);
+    } finally {
+      setSelectedFiles([]);
+      setLoading(false);
+    }
   };
 
   const handleClickGenerate = () => {
-    const current = prompt;
+    const cur = prompt;
     setPrompt("");
-    handleGenerate(current);
+    handleGenerate(cur);
+  };
+
+  const handleDownloadMain = () => {
+    if (!imageURL) return;
+    const a = document.createElement("a");
+    a.href = imageURL;
+    a.download = imageURL.split("/").pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
-    <div className="h-screen grid grid-cols-1 md:grid-cols-[3fr_2fr_1fr] gap-4 md:gap-6 bg-white p-4 md:p-6 text-gray-800">
-      {/* 左側 */}
-      <div className="relative flex flex-col border-2 border-orange-500 bg-gray-50 rounded-2xl p-2 md:p-4">
-        {/* 歷史縮圖列表 */}
-        <div className="flex items-center justify-between mb-2 md:mb-4 p-2 bg-orange-100 rounded overflow-x-auto">
-          <div className="flex flex-wrap gap-2">
-            {history.length > 0 ? history.map((url, idx) => (
-              <img key={idx} src={url} alt={`歷史${idx+1}`} className="w-8 h-8 object-cover rounded cursor-pointer" onClick={() => setImageURL(url)} />
-            )) : (
-              <span className="text-xs md:text-sm text-orange-500">尚無歷史檔案</span>
-            )}
-          </div>
+    <div className="h-screen grid grid-cols-1 md:grid-cols-[3fr_2fr_1fr] gap-4 p-4 bg-white text-gray-800">
+      {/* 左側：歷史縮圖 + 主圖 + 下載 */}
+      <div className="flex flex-col border-2 border-orange-500 bg-gray-50 rounded-2xl p-4">
+        <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
+          {history.length > 0 ? history.map((url, idx) => {
+            const active = selectedHistory === idx;
+            return (
+              <img
+                key={idx}
+                src={url}
+                alt={`歷史${idx + 1}`}
+                onClick={() => { setImageURL(url); setSelectedHistory(idx); }}
+                className={`w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}`}
+              />
+            );
+          }) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
         </div>
-
-        {/* 顯示目前圖片或提示 */}
         {loading ? (
-          <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-2xl md:text-3xl min-h-[40vh] md:min-h-[50vh]">
-            生成圖片中...
-          </div>
+          <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-4xl">生成中...</div>
         ) : imageURL ? (
-          <img src={imageURL} alt="AI 生成設計圖" className="rounded-xl max-h-[50vh] md:max-h-[60vh] mx-auto mb-2 md:mb-4 object-contain" />
+          <img src={imageURL} alt="AI 生成設計圖" className="rounded-xl max-h-[60vh] mx-auto mb-4 object-contain" />
         ) : (
-          <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-2xl md:text-3xl min-h-[40vh] md:min-h-[50vh]">
-            Design Picture
-          </div>
+          <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-4xl">Design Picture</div>
         )}
-
-        {/* 手機版大按鈕 */}
-        <div className="hidden md:flex justify-around mt-2">
-          <button className="w-28 md:w-40 h-10 md:h-12 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-lg text-base md:text-lg" onClick={handleClickGenerate}>
-            <ArrowLeft size={20} /> 傳送
-          </button>
-          <button className="w-28 md:w-40 h-10 md:h-12 flex items-center justify-center gap-2 bg-orange-500 text-white rounded-lg text-base md:text-lg" onClick={() => setImageURL("")}>  
+        <div className="hidden md:flex justify-around mt-4">
+          <button onClick={handleDownloadMain} className="w-28 h-12 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2">
             <Download size={20} /> 下載
           </button>
         </div>
       </div>
 
-      {/* 中間 Prompt 區 */}
-      <div className="flex flex-col border-2 border-blue-500 bg-gray-50 rounded-2xl p-2 md:p-4 overflow-hidden">
-        <div className="p-2 md:p-3 bg-blue-500 text-white rounded-lg">
+      {/* 中間：Best Prompt + 聊天 + 輸入 */}
+      <div className="flex flex-col border-2 border-blue-500 bg-gray-50 rounded-2xl p-4">
+        <div className="p-2 bg-blue-500 text-white rounded-lg">
           <strong>Best Prompt:</strong>
           {bestPrompt && <p className="mt-2 whitespace-pre-wrap">{bestPrompt}</p>}
         </div>
-        <div className="flex-1 bg-white rounded-xl p-2 md:p-4 mt-2 md:mt-4 overflow-y-auto space-y-2">
-          {messages.map((msg, idx) => <div key={idx} className="text-blue-500 break-words">User: {msg}</div>)}
+        <div className="flex-1 bg-white rounded-xl p-4 mt-4 overflow-y-auto space-y-2">
+          {messages.map((msg, idx) => (
+            <div key={idx} className="text-blue-500">User: {msg}</div>
+          ))}
           <div ref={messagesEndRef} />
         </div>
-        <div className="flex items-center gap-2 mt-2 md:mt-4">
-          <textarea value={prompt} onChange={e => setPrompt(e.target.value)} onKeyDown={e => { if (e.isComposing) return; if ((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); handleClickGenerate(); } }} placeholder="輸入你的 prompt" className="flex-1 px-2 md:px-3 py-1 md:py-2 border border-gray-300 rounded-lg outline-none resize-none text-xs md:text-sm" />
-          <button className="px-3 md:px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={handleClickGenerate}>{(!prompt.trim() && bestPrompt) ? <RotateCcw size={20} /> : '→ Generate'}</button>
+        <div className="flex items-center gap-2 mt-4">
+          <textarea
+            placeholder="輸入你的 prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.isComposing) return;
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                handleClickGenerate();
+              }
+            }}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm"
+          />
+          {(!prompt.trim() && bestPrompt) ? (
+            <button onClick={() => handleGenerate(bestPrompt)} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+              <RotateCcw size={20} />
+            </button>
+          ) : (
+            <button onClick={handleClickGenerate} className="px-4 py-2 bg-blue-500 text-white rounded-lg">→ Generate</button>
+          )}
         </div>
       </div>
 
-      {/* 右側 上傳區 */}
-      <div className="flex flex-col border-2 border-purple-500 bg-gray-50 rounded-2xl p-2 md:p-4 overflow-hidden">
-        <div className="flex-1 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto p-2">
-          {files.map((file, idx) =>{
-            const url = fileUrls[file.name] || '';
-            const isSelected = selectedFiles.includes(file.name);
+      {/* 右側：檔案上傳 & 列表 */}
+      <div className="flex flex-col border-2 border-purple-500 bg-gray-50 rounded-2xl p-4 overflow-hidden">
+        <div className="flex flex-row md:flex-col gap-2 overflow-auto mb-4">
+          {files.map((file, idx) => {
+            const fid = fileIds[file.name];
+            const src = fid ? `${S3_BASE}/${fid}.jpg` : "";
+            const sel = selectedFiles.includes(file.name);
             return (
-              <div key={idx} onClick={() => toggleSelect(file.name)} className="flex-shrink-0 flex flex-col items-center gap-1 w-20 md:w-full">
-                <div className={`${isSelected? 'border-4 border-purple-500':'border-2 border-transparent'} cursor-pointer w-full aspect-square rounded overflow-hidden transition-transform duration-200 hover:scale-105 hover:shadow-lg`}>
-                  {url ? <img src={url} alt={file.name} className="object-cover w-full h-full" /> : <div className="w-full h-full bg-gray-200 animate-pulse" />}
+              <div key={idx} onClick={() => toggleSelect(file.name)} className="flex-shrink-0 w-20 md:w-full">
+                <div className={`aspect-square rounded overflow-hidden border-2 ${sel ? "border-purple-500" : "border-transparent"}`}>
+                  {src ? <img src={src} alt={file.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-200 animate-pulse" />}
                 </div>
-                <p className="hidden md:block text-xs text-center">{file.name}</p>
+                <p className="hidden md:block text-xs text-center mt-1">{file.name}</p>
               </div>
             );
           })}
         </div>
-        <label className="w-full flex justify-center items-center py-2 bg-purple-500 text-white rounded-lg cursor-pointer mt-2">
+        <label className="mt-auto py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-center cursor-pointer">
           上傳檔案
           <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
         </label>

@@ -3,6 +3,8 @@ import { Download, RotateCcw } from "lucide-react";
 
 const API_BASE = "https://5jcxcx8tub.execute-api.us-west-2.amazonaws.com";
 const S3_BASE = "https://d2rxbimzcpor6e.cloudfront.net";
+const S3_BASE2 = "https://d1ykefiqcz1tgb.cloudfront.net";
+
 
 export default function AIDesignPage() {
   const [prompt, setPrompt] = useState("");
@@ -125,14 +127,16 @@ export default function AIDesignPage() {
         <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
           {history.length > 0 ? history.map((url, idx) => {
             const active = selectedHistory === idx;
+            const src1 = fid ? `${S3_BASE2}/${fid}.jpg` : "";
             return (
-              <img
-                key={idx}
-                src={url}
-                alt={`歷史${idx + 1}`}
+              <img 
+                src={src1} 
+                alt={'歷史${idx + 1}'} 
+                className="w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}" 
                 onClick={() => { setImageURL(url); setSelectedHistory(idx); }}
-                className={`w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}`}
-              />
+                />
+              
+  
             );
           }) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
         </div>
@@ -141,7 +145,7 @@ export default function AIDesignPage() {
           <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-4xl">生成中...</div>
         ) : imageURL ? (
           <img
-            src={imageURL}
+            src={src1}
             alt="AI 生成設計圖"
             className="rounded-xl w-full h-auto mb-4 object-contain"
           />

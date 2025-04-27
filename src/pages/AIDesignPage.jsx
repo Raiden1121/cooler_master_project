@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Download, RotateCcw } from "lucide-react";
 
-// ------ 常數設定 ------
 const API_BASE = "https://5jcxcx8tub.execute-api.us-west-2.amazonaws.com";
 const S3_BASE = "https://d2rxbimzcpor6e.cloudfront.net";
 
@@ -18,6 +17,7 @@ export default function AIDesignPage() {
   const [loading, setLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -82,12 +82,11 @@ export default function AIDesignPage() {
       const imageId = data.imageId ?? data.result?.imageId;
       let bpData = data.bestPrompt ?? data.result?.bestPrompt;
 
-      // 🔥 去除 <generate-best-prompt> 前綴
       if (typeof bpData === "object" && bpData.result) {
         bpData = bpData.result;
       }
       if (typeof bpData === "string") {
-        bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "");
+        bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
       const url = imageId ? `${S3_BASE}/${imageId}.jpg` : "";
@@ -120,7 +119,8 @@ export default function AIDesignPage() {
 
   return (
     <div className="h-screen grid grid-cols-1 md:grid-cols-[3fr_2fr_1fr] gap-4 p-4 bg-white text-gray-800">
-      {/* 左側：歷史縮圖 + 主圖 + 下載 */}
+
+      {/* 左側：歷史縮圖 + 主圖 */}
       <div className="flex flex-col border-2 border-orange-500 bg-gray-50 rounded-2xl p-4">
         <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
           {history.length > 0 ? history.map((url, idx) => {
@@ -136,13 +136,19 @@ export default function AIDesignPage() {
             );
           }) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
         </div>
+
         {loading ? (
           <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-4xl">生成中...</div>
         ) : imageURL ? (
-          <img src={imageURL} alt="AI 生成設計圖" className="rounded-xl max-h-[60vh] mx-auto mb-4 object-contain" />
+          <img
+            src={imageURL}
+            alt="AI 生成設計圖"
+            className="rounded-xl w-full h-auto mb-4 object-contain"
+          />
         ) : (
           <div className="flex-1 border-2 border-dashed border-orange-400 rounded-xl flex items-center justify-center text-orange-500 text-4xl">Design Picture</div>
         )}
+
         <div className="hidden md:flex justify-around mt-4">
           <button onClick={handleDownloadMain} className="w-28 h-12 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2">
             <Download size={20} /> 下載
@@ -154,35 +160,41 @@ export default function AIDesignPage() {
       <div className="flex flex-col border-2 border-blue-500 bg-gray-50 rounded-2xl p-4">
         <div className="p-2 bg-blue-500 text-white rounded-lg">
           <strong>Best Prompt:</strong>
-          {bestPrompt && <p className="mt-2 whitespace-pre-wrap">{bestPrompt}</p>}
-        </div>
-        <div className="flex-1 bg-white rounded-xl p-4 mt-4 overflow-y-auto space-y-2">
-          {messages.map((msg, idx) => (
-            <div key={idx} className="text-blue-500">User: {msg}</div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-        <div className="flex items-center gap-2 mt-4">
-          <textarea
-            placeholder="輸入你的 prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.isComposing) return;
-              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                e.preventDefault();
-                handleClickGenerate();
-              }
-            }}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm"
-          />
-          {(!prompt.trim() && bestPrompt) ? (
-            <button onClick={() => handleGenerate(bestPrompt)} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
-              <RotateCcw size={20} />
-            </button>
-          ) : (
-            <button onClick={handleClickGenerate} className="px-4 py-2 bg-blue-500 text-white rounded-lg">→ Generate</button>
+          {bestPrompt && (
+            <p className="mt-2 text-sm whitespace-pre-wrap">{bestPrompt}</p>
           )}
+        </div>
+
+        <div className="flex-1 flex flex-col bg-white rounded-xl p-4 mt-4">
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {messages.map((msg, idx) => (
+              <div key={idx} className="text-blue-500 break-words">User: {msg}</div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-300">
+            <textarea
+              placeholder="輸入你的 prompt"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.isComposing) return;
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  handleClickGenerate();
+                }
+              }}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none text-sm"
+            />
+            {(!prompt.trim() && bestPrompt) ? (
+              <button onClick={() => handleGenerate(bestPrompt)} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
+                <RotateCcw size={20} />
+              </button>
+            ) : (
+              <button onClick={handleClickGenerate} className="px-4 py-2 bg-blue-500 text-white rounded-lg">→</button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -208,6 +220,7 @@ export default function AIDesignPage() {
           <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
         </label>
       </div>
+
     </div>
   );
 }

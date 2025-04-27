@@ -90,7 +90,7 @@ export default function AIDesignPage() {
         bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
-      const url = imageId ? `${S3_BASE_2}/${imageId}.jpg` : "";
+      const url = imageId ? `${S3_BASE_2}/${imageId}` : "";
       setImageURL(url);
       if (bpData) setBestPrompt(bpData);
       setHistory((p) => [url, ...p]);

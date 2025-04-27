@@ -90,10 +90,15 @@ export default function AIDesignPage() {
         bpData = bpData.replace(/^<generate-best-prompt>\s*/i, "").trim();
       }
 
-      const url = imageId ? `${S3_BASE2}/${imageId}.jpg` : "";
+      if (!imageId) {
+        console.error("No valid imageId returned from API", data);
+        return;
+      }
+
+      const url = `${S3_BASE2}/${imageId}.jpg`;
       setImageURL(url);
       if (bpData) setBestPrompt(bpData);
-      setHistory((p) => [url, ...p]);
+      setHistory((p) => [imageId, ...p]);
     } catch (err) {
       console.error("Generate 錯誤：", err);
     } finally {
@@ -124,17 +129,22 @@ export default function AIDesignPage() {
       {/* 左側：歷史縮圖 + 主圖 */}
       <div className="flex flex-col border-2 border-orange-500 bg-gray-50 rounded-2xl p-4">
         <div className="flex flex-wrap gap-2 mb-4 overflow-x-auto">
-          {history.length > 0 ? history.map((url, idx) => {
+          {history.length > 0 ? history.map((imageId, idx) => {
+            if (!imageId) {
+              console.warn(`Invalid imageId at history index ${idx}`);
+              return null;
+            }
             const active = selectedHistory === idx;
             return (
               <img 
-                src={url} 
+                key={idx}
+                src={`${S3_BASE2}/${imageId}.jpg`} 
                 alt={`歷史${idx + 1}`} 
                 className={`w-20 h-20 object-cover rounded cursor-pointer transition-transform duration-200 hover:scale-105 ${active ? "border-4 border-orange-500" : "border-2 border-transparent"}`} 
-                onClick={() => { setImageURL(url); setSelectedHistory(idx); }}
+                onClick={() => { setImageURL(`${S3_BASE2}/${imageId}.jpg`); setSelectedHistory(idx); }}
               />
             );
-          }) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
+          }).filter(Boolean) : <span className="text-xs text-orange-500">尚無歷史檔案</span>}
         </div>
 
         {loading ? (
